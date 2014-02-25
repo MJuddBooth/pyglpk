@@ -565,11 +565,6 @@ static void mip_callback(glp_tree *tree, void *info) {
 
 static PyObject* LPX_solver_integer(LPXObject *self, PyObject *args,
 				    PyObject *keywds) {
-  if (glp_get_status(LP) != GLP_OPT) {
-    PyErr_SetString(PyExc_RuntimeError, "integer solver requires "
-		    "existing optimal basic solution");
-    return NULL;
-  }
 #if GLPK_VERSION(4, 20)
   PyObject *callback=NULL;
   struct mip_callback_object*info=NULL;
@@ -587,7 +582,14 @@ static PyObject* LPX_solver_integer(LPXObject *self, PyObject *args,
 #endif // GLPK_VERSION(4, 24)
 #if GLPK_VERSION(4, 23)
      "mir_cuts",
+     "mip_gap",
 #endif // GLPK_VERSION(4, 23)
+#if GLPK_VERSION(4, 32)
+     "cov_cuts", "clq_cuts", "presolve", "binarize",
+#endif // GLPK_VERSION(4, 32)
+#if GLPK_VERSION(4, 37)
+     "fp_heur",
+#endif // GLPK_VERSION(4, 37)
      "tol_int", "tol_obj", "tm_lim", "out_frq", "out_dly", 
      "callback", //"cb_info", "cb_size",
      NULL};
@@ -600,8 +602,14 @@ static PyObject* LPX_solver_integer(LPXObject *self, PyObject *args,
        "i"
 #endif // GLPK_VERSION(4, 24)
 #if GLPK_VERSION(4, 23)
-       "i"
+       "ii"
 #endif // GLPK_VERSION(4, 23)
+#if GLPK_VERSION(4, 32)
+       "iiii"
+#endif // GLPK_VERSION(4, 32)
+#if GLPK_VERSION(4, 37)
+       "i"
+#endif // GLPK_VERSION(4, 37)
        "ddiiiO", kwlist, &cp.msg_lev, &cp.br_tech, &cp.bt_tech,
 #if GLPK_VERSION(4, 21)
        &cp.pp_tech,
@@ -611,7 +619,14 @@ static PyObject* LPX_solver_integer(LPXObject *self, PyObject *args,
 #endif // GLPK_VERSION(4, 24)
 #if GLPK_VERSION(4, 23)
        &cp.mir_cuts,
+       &cp.mip_gap,
 #endif // GLPK_VERSION(4, 23)
+#if GLPK_VERSION(4, 32)
+       &cp.cov_cuts, &cp.clq_cuts, &cp.presolve, &cp.binarize,
+#endif // GLPK_VERSION(4, 32)
+#if GLPK_VERSION(4, 37)
+       &cp.fp_heur,
+#endif // GLPK_VERSION(4, 37)
        &cp.tol_int, &cp.tol_obj, &cp.tm_lim, &cp.out_frq, &cp.out_dly,
        &callback)) {
     return NULL;
@@ -622,7 +637,30 @@ static PyObject* LPX_solver_integer(LPXObject *self, PyObject *args,
 #if GLPK_VERSION(4, 23)
   cp.mir_cuts = cp.mir_cuts ? GLP_ON : GLP_OFF;
 #endif // GLPK_VERSION(4, 23)
+#if GLPK_VERSION(4, 32)
+  cp.cov_cuts = cp.cov_cuts ? GLP_ON : GLP_OFF;
+  cp.clq_cuts = cp.clq_cuts ? GLP_ON : GLP_OFF;
+  cp.presolve = cp.presolve ? GLP_ON : GLP_OFF;
+  cp.binarize = cp.binarize ? GLP_ON : GLP_OFF;
+#endif // GLPK_VERSION(4, 32)
+#if GLPK_VERSION(4, 37)
+  cp.fp_heur = cp.fp_heur ? GLP_ON : GLP_OFF;
+#endif // GLPK_VERSION(4, 32)
+
   // Do checking on the various entries.
+#if GLPK_VERSION(4, 32)
+  if (!cp.presolve && glp_get_status(LP) != GLP_OPT) {
+    PyErr_SetString(PyExc_RuntimeError, "integer solver requires "
+                    "use of presolver or existing optimal basic solution");
+    return NULL;
+  }
+#else
+  if (glp_get_status(LP) != GLP_OPT) {
+    PyErr_SetString(PyExc_RuntimeError, "integer solver requires "
+		    "existing optimal basic solution");
+    return NULL;
+  }
+#endif
   switch (cp.msg_lev) {
   case GLP_MSG_OFF: case GLP_MSG_ERR: case GLP_MSG_ON: case GLP_MSG_ALL: break;
   default:
@@ -677,6 +715,12 @@ static PyObject* LPX_solver_integer(LPXObject *self, PyObject *args,
     PyErr_SetString(PyExc_ValueError, "out_dly must be non-negative");
     return NULL;
   }
+#if GLPK_VERSION(4, 23)
+  if (cp.mip_gap<0) {
+    PyErr_SetString(PyExc_ValueError, "mip_gap must be non-negative");
+    return NULL;
+  }
+#endif
   int retval;
   if (callback != NULL && callback != Py_None) {
     info = (struct mip_callback_object*)
@@ -818,7 +862,6 @@ static PyObject* glpstatus2string(int status) {
   case GLP_NOFEAS: return PyString_FromString("nofeas");
   case GLP_UNBND:  return PyString_FromString("unbnd");
   case GLP_UNDEF:  return PyString_FromString("undef");
-
   default:         return PyString_FromString("unknown?");
   }
 }
@@ -1112,6 +1155,7 @@ static PyMethodDef LPX_methods[] = {
    "Alternately, on failure it will return one of the following\n"
    "strings to indicate failure type.\n\n"
    "fault   -- There are no rows or columns.\n"
+   "nofeas  -- The problem has no feasible (primal/dual) solution.\n"
    "noconv  -- Very slow convergence or divergence.\n"
    "itlim   -- Iteration limited exceeded.\n"
    "instab  -- Numerical instability when solving Newtonian system." },
@@ -1149,6 +1193,16 @@ static PyMethodDef LPX_methods[] = {
 #endif
 #if GLPK_VERSION(4, 23)
    "mir_cuts: Use mixed integer rounding cuts (default False)\n"
+   "mip_gap : The relative mip gap tolerance. (default 0.0)\n"
+#endif
+#if GLPK_VERSION(4, 32)
+   "cov_cuts: Use cover cuts (default False)\n"
+   "clq_cuts: Use clique cuts (default False)\n"
+   "presolve: Use MIP presolver (default False)\n"
+   "binarize: Try to binarize integer variables (default False)\n"
+#endif
+#if GLPK_VERSION(4, 37)
+   "fp_heur : enable applying the feasibility pump heuristic (default False)\n"
 #endif
    "tol_int : Tolerance used to check if the optimal solution to the\n"
    "  current LP relaxation is integer feasible.\n"
@@ -1190,9 +1244,9 @@ static PyMethodDef LPX_methods[] = {
    "if built against GLPK 4.20 or later.  Your PyGLPK was built against\n"
    "an earlier version.\n\n"
 #endif
-   "This method requires a mixed-integer problem where an optimal\n"
-   "solution to an LP relaxation (either through simplex() or\n"
-   "exact()) has already been found.  Alternately, try intopt().\n\n"
+   "If the presolver is not used this method requires a mixed-integer\n"
+   "problem where an optimal solution to an LP relaxation (either through\n"
+   "simplex() or exact()) has already been found.\n\n"
    "This returns None if the problem was successfully solved.\n"
    "Alternately, on failure it will return one of the following\n"
    "strings to indicate failure type.\n\n"
@@ -1206,6 +1260,9 @@ static PyMethodDef LPX_methods[] = {
 
   {"intopt", (PyCFunction)LPX_solver_intopt, METH_NOARGS,
    "intopt()\n\n"
+#if GLPK_VERSION(4, 32)
+   "Note: this method is deprecated, use integer(presolve=True) instead.\n\n"
+#endif
    "More advanced MIP branch-and-bound solver than integer(). This\n"
    "variant does not require an existing LP relaxation.\n\n"
    "This returns None if the problem was successfully solved.\n"
