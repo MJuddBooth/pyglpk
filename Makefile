@@ -13,7 +13,7 @@ all:
 	rm -f $(MODNAME).so
 	ln -s build/lib.*/$(MODNAME).so
 
-test:
+test: glpk.so
 	$(PYTHON) tests/test_glpk.py
 
 install:
