@@ -2,10 +2,16 @@
 
    Copyright (c) 2007, 2008, Thomas W. Finley
 
+
 # PyGPLK 5
-## PyGLPK 5.1
-October 10, 2013
-* PyGLPK has been updated to build againse GLPK 4.47
+  ## PyGLPK 5.6
+  March 5, 2014
+     * builds against GLPK 4.52 (no changes)
+     * Merged enhancements from Martijn van Oosterhout
+
+  ## PyGLPK 5.5.1
+  October 10, 2013
+     * PyGLPK has been updated to build againse GLPK 4.47
 
 ## PyGLPK 0.3
 
