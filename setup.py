@@ -80,11 +80,11 @@ of the GNU Linear Programming Kit.
 """
 
 setup(name = 'glpk',
-      version = '5.5.1',
+      version = '5.6.0',
       description = 'PyGLPK, a Python module encapsulating GLPK.',
       long_description = ld,
-      author = 'Thomas Finley, Christopher Garay',
-      author_email = 'tfinley@gmail.com, christopher.d.garay@gmail.com',
+      author = 'Thomas Finley, Christopher Garay, Martijn van Oosterhout', 
+      author_email = 'tfinley@gmail.com, christopher.d.garay@gmail.com, kleptog@svana.org',
       url = 'http://tfinley.net/software/pyglpk',
       license = 'GPL',
       classifiers = [
